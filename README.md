@@ -7,8 +7,10 @@ nowplaying-cli is a macOS command-line utility for retrieving currently playing 
 - Ventura 13.1
 
 ## Usage
-!(get properties)[./screenshots/getproperties.png]
-!(get raw data)[./screenshots/getraw.png]
+Get individual properties:
+![get properties](./screenshots/getproperties.png)
+Get all available information:
+![get raw data](./screenshots/getraw.png)
 
 ## Available properties
 | native  |  nowplaying-cli |
