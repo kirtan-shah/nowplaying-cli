@@ -7,10 +7,19 @@ nowplaying-cli is a macOS command-line utility for retrieving currently playing 
 - Ventura 13.1
 
 ## Usage
-Get individual properties:
-![get properties](./screenshots/getproperties.png)
-Get all available information:
-![get raw data](./screenshots/getraw.png)
+`nowplaying-cli <cmd>`
+| command | description |
+| --- | --- |
+| get [propName1 propName2 ... ] | get now playing media properties | 
+| get-raw | get all non-nil now playing media properties in dictionary format |
+| play | play the currently playing media regardless of current state |
+| pause | pause the currently playing media regardless of current state |
+| togglePlayPause | toggle play/pause based on current state |
+| next | skip to next track | 
+| previous | go to previous track |
+
+## Examples
+![screenshot of examples in terminal](examples.png)
 
 ## Available properties
 | native  |  nowplaying-cli |

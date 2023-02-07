@@ -1,13 +1,34 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
+#import "Enums.h"
 
 typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
+typedef Boolean (*MRMediaRemoteSendCommandFunction)(MRMediaRemoteCommand cmd, NSDictionary* userInfo);
 
 void printHelp() {
     printf("Example Usage: \n");
     printf("\tnowplaying-cli get-raw\n");
     printf("\tnowplaying-cli get title album artist\n");
+    printf("\tnowplaying-cli pause\n");
+    printf("\n");
+    printf("Available commands: \n");
+    printf("\tget, get-raw, play, pause, togglePlayPause, next, previous\n");
 }
+
+typedef enum {
+    GET,
+    GET_RAW,
+    MEDIA_COMMAND
+
+} Command;
+
+NSDictionary<NSString*, NSNumber*> *cmdTranslate = @{
+    @"play": @(MRMediaRemoteCommandPlay),
+    @"pause": @(MRMediaRemoteCommandPause),
+    @"togglePlayPause": @(MRMediaRemoteCommandTogglePlayPause),
+    @"next": @(MRMediaRemoteCommandNextTrack),
+    @"previous": @(MRMediaRemoteCommandPreviousTrack),
+};
 
 int main(int argc, char** argv) {
 
@@ -15,7 +36,10 @@ int main(int argc, char** argv) {
         printHelp();
         return 0;
     }
-    bool getRaw = false;
+
+    Command command = GET;
+    NSString *cmdStr = [NSString stringWithUTF8String:argv[1]];
+
     int numKeys = argc - 2;
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
     if(strcmp(argv[1], "get") == 0) {
@@ -23,9 +47,13 @@ int main(int argc, char** argv) {
             NSString *key = [NSString stringWithUTF8String:argv[i]];
             [keys addObject:key];
         }
+        command = GET;
     }
     else if(strcmp(argv[1], "get-raw") == 0) {
-        getRaw = true;
+        command = GET_RAW;
+    }
+    else if(cmdTranslate[cmdStr] != nil) {
+        command = MEDIA_COMMAND;
     }
     else {
         printHelp();
@@ -39,15 +67,25 @@ int main(int argc, char** argv) {
         backing: NSBackingStoreBuffered
         defer: NO];
 
+
     CFURLRef ref = (__bridge CFURLRef) [NSURL fileURLWithPath:@"/System/Library/PrivateFrameworks/MediaRemote.framework"];
     CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
-    
+
+    MRMediaRemoteSendCommandFunction MRMediaRemoteSendCommand = (MRMediaRemoteSendCommandFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteSendCommand"));
+    if(command == MEDIA_COMMAND) {
+        MRMediaRemoteSendCommand((MRMediaRemoteCommand) [cmdTranslate[cmdStr] intValue], nil);
+    }
+
     MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo = (MRMediaRemoteGetNowPlayingInfoFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
     MRMediaRemoteGetNowPlayingInfo(dispatch_get_main_queue(), ^(NSDictionary* information) {
-        NSString *data = [information description];
+        if(command == MEDIA_COMMAND) {
+            [NSApp terminate:nil];
+            return;
+        }
 
+        NSString *data = [information description];
         const char *dataStr = [data UTF8String];
-        if(getRaw) {
+        if(command == GET_RAW) {
             printf("%s\n", dataStr);
             [NSApp terminate:nil];
             return;
@@ -58,13 +96,13 @@ int main(int argc, char** argv) {
             NSString *key = [NSString stringWithFormat:@"kMRMediaRemoteNowPlayingInfo%@", propKey];
             NSObject *rawValue = [information objectForKey:key];
             if(rawValue == nil) {
+                printf("null\n");
                 continue;
             }
             NSString *value = [NSString stringWithFormat:@"%@", rawValue];
             const char *valueStr = [value UTF8String];
             printf("%s\n", valueStr);
         }
-
         [NSApp terminate:nil];
     });
 
