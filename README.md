@@ -19,7 +19,7 @@ nowplaying-cli is a macOS command-line utility for retrieving currently playing 
 | previous | go to previous track |
 
 ## Examples
-![screenshot of examples in terminal](examples.png)
+![screenshot of examples in terminal](screenshots/examples.png)
 
 ## Available properties
 | native  |  nowplaying-cli |
