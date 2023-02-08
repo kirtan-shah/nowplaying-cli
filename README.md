@@ -1,9 +1,11 @@
 # nowplaying-cli
-nowplaying-cli is a macOS command-line utility for retrieving currently playing media.
+nowplaying-cli is a macOS command-line utility for retrieving currently playing media, and simulating media actions.
+
+Use nowplaying-cli to get song information and play/pause your media through an easy to use CLI!
 
 **Disclaimer:** nowplaying-cli uses private frameworks, which may cause it to break with future macOS software updates.
 
-**Tested (and working) on:** 
+**Tested and working on:** 
 - Ventura 13.1
 
 ## Usage
@@ -48,8 +50,7 @@ nowplaying-cli is a macOS command-line utility for retrieving currently playing 
 |  kMRMediaRemoteNowPlayingInfoUniqueIdentifier | uniqueIdentifier |
 
 ## Homebrew Install
-
-## Releases
+TODO 
 
 ## Build
-`clang nowplaying.mm -framework Cocoa -o nowplaying-cli`
+`clang nowplaying.mm -framework Cocoa -o nowplaying-cli -O3`
