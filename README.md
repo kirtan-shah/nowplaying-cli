@@ -6,7 +6,7 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 **Disclaimer:** nowplaying-cli uses private frameworks, which may cause it to break with future macOS software updates.
 
 **Tested and working on:** 
-- Ventura 13.1
+- Ventura 13.1, 13.2, 13.3
 
 ## Usage
 `nowplaying-cli <cmd>`
