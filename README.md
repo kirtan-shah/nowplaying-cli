@@ -53,4 +53,4 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 TODO 
 
 ## Build
-`clang nowplaying.mm -framework Cocoa -o nowplaying-cli -O3`
+`make`
