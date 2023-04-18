@@ -97,11 +97,17 @@ int main(int argc, char** argv) {
             NSObject *rawValue = [information objectForKey:key];
             if(rawValue == nil) {
                 printf("null\n");
-                continue;
             }
-            NSString *value = [NSString stringWithFormat:@"%@", rawValue];
-            const char *valueStr = [value UTF8String];
-            printf("%s\n", valueStr);
+            else if([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoArtworkData"]) {
+                NSData *data = (NSData *) rawValue;
+                NSString *base64 = [data base64EncodedStringWithOptions:0];
+                printf("%s\n", [base64 UTF8String]);
+            } 
+            else {
+                NSString *value = [NSString stringWithFormat:@"%@", rawValue];
+                const char *valueStr = [value UTF8String];
+                printf("%s\n", valueStr);
+            }
         }
         [NSApp terminate:nil];
     });
