@@ -34,6 +34,8 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 |  kMRMediaRemoteNowPlayingInfoTitle | title
 |  kMRMediaRemoteNowPlayingInfoPlaybackRate | playbackRate | 
 |  kMRMediaRemoteNowPlayingInfoArtworkData | artworkData |
+|  kMRMediaRemoteNowPlayingInfoArtworkDataWidth | artworkDataWidth |
+|  kMRMediaRemoteNowPlayingInfoArtworkDataHeight | artworkDataHeight |
 |  kMRMediaRemoteNowPlayingInfoAlbum | album |
 |  kMRMediaRemoteNowPlayingInfoTotalQueueCount | totalQueueCount | 
 |  kMRMediaRemoteNowPlayingInfoArtworkMIMEType | artworkMIMEType
