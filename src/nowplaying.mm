@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
             if(rawValue == nil) {
                 printf("null\n");
             }
-            else if([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoArtworkData"]) {
+            else if([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoArtworkData"] || [key isEqualToString:@"kMRMediaRemoteNowPlayingInfoClientPropertiesData"]) {
                 NSData *data = (NSData *) rawValue;
                 NSString *base64 = [data base64EncodedStringWithOptions:0];
                 printf("%s\n", [base64 UTF8String]);
