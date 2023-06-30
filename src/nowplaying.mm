@@ -1,6 +1,8 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
+#import <objc/runtime.h>
 #import "Enums.h"
+#import "MRContent.h"
 
 typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
 typedef Boolean (*MRMediaRemoteSendCommandFunction)(MRMediaRemoteCommand cmd, NSDictionary* userInfo);
@@ -77,7 +79,7 @@ int main(int argc, char** argv) {
     }
 
     MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo = (MRMediaRemoteGetNowPlayingInfoFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
-    MRMediaRemoteGetNowPlayingInfo(dispatch_get_main_queue(), ^(NSDictionary* information) {
+    MRMediaRemoteGetNowPlayingInfo(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(NSDictionary* information) {
         if(command == MEDIA_COMMAND) {
             [NSApp terminate:nil];
             return;
@@ -102,7 +104,13 @@ int main(int argc, char** argv) {
                 NSData *data = (NSData *) rawValue;
                 NSString *base64 = [data base64EncodedStringWithOptions:0];
                 printf("%s\n", [base64 UTF8String]);
-            } 
+            }
+            else if([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoElapsedTime"]) {
+                MRContentItem *item = [[objc_getClass("MRContentItem") alloc] initWithNowPlayingInfo:(__bridge NSDictionary *)information];
+                NSString *value = [NSString stringWithFormat:@"%f", item.metadata.calculatedPlaybackPosition];
+                const char *valueStr = [value UTF8String];
+                printf("%s\n", valueStr);
+            }
             else {
                 NSString *value = [NSString stringWithFormat:@"%@", rawValue];
                 const char *valueStr = [value UTF8String];
