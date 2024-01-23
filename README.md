@@ -6,7 +6,24 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 **Disclaimer:** nowplaying-cli uses private frameworks, which may cause it to break with future macOS software updates.
 
 **Tested and working on:** 
-- Ventura 13.1, 13.2, 13.3
+- Ventura 13.1, 13.2, 13.3, 13.6
+
+## Installation
+
+### Homebrew
+
+You can install nowplaying-cli using [Homebrew](https://brew.sh/).
+```bash
+brew install nowplaying-cli
+```
+
+### Build from source
+
+Clone the repository and run `make` to build the binary. You can then move the binary to your desired location.
+```bash
+make
+mv nowplaying-cli ~/.local/bin
+```
 
 ## Usage
 `nowplaying-cli <cmd>`
@@ -50,9 +67,3 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 |  kMRMediaRemoteNowPlayingInfoTotalTrackCount | totalTrackCount |
 |  kMRMediaRemoteNowPlayingInfoIsMusicApp | isMusicApp |
 |  kMRMediaRemoteNowPlayingInfoUniqueIdentifier | uniqueIdentifier |
-
-## Homebrew Install
-TODO 
-
-## Build
-`make`
