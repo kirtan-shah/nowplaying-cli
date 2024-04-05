@@ -7,6 +7,7 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 
 **Tested and working on:** 
 - Ventura 13.1, 13.2, 13.3, 13.6
+- Sonoma 14.4
 
 ## Installation
 
