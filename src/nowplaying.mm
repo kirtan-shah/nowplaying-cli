@@ -5,6 +5,7 @@
 #import "MRContent.h"
 
 typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
+typedef void (*MRMediaRemoteSetElapsedTimeFunction)(double time);
 typedef Boolean (*MRMediaRemoteSendCommandFunction)(MRMediaRemoteCommand cmd, NSDictionary* userInfo);
 
 void printHelp() {
@@ -12,15 +13,17 @@ void printHelp() {
     printf("\tnowplaying-cli get-raw\n");
     printf("\tnowplaying-cli get title album artist\n");
     printf("\tnowplaying-cli pause\n");
+    printf("\tnowplaying-cli seek 60\n");
     printf("\n");
     printf("Available commands: \n");
-    printf("\tget, get-raw, play, pause, togglePlayPause, next, previous\n");
+    printf("\tget, get-raw, play, pause, togglePlayPause, next, previous, seek <secs>\n");
 }
 
 typedef enum {
     GET,
     GET_RAW,
-    MEDIA_COMMAND
+    MEDIA_COMMAND,
+    SEEK,
 
 } Command;
 
@@ -41,6 +44,7 @@ int main(int argc, char** argv) {
 
     Command command = GET;
     NSString *cmdStr = [NSString stringWithUTF8String:argv[1]];
+    double seekTime = 0;
 
     int numKeys = argc - 2;
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
@@ -53,6 +57,16 @@ int main(int argc, char** argv) {
     }
     else if(strcmp(argv[1], "get-raw") == 0) {
         command = GET_RAW;
+    }
+    else if(strcmp(argv[1], "seek") == 0 && argc == 3) {
+        command = SEEK;
+        char *end;
+        seekTime = strtod(argv[2], &end);
+        if(*end != '\0') {
+            fprintf(stderr, "Invalid seek time: %s\n", argv[2]);
+            fprintf(stderr, "Usage: nowplaying-cli seek <secs>\n");
+            return 1;
+        }
     }
     else if(cmdTranslate[cmdStr] != nil) {
         command = MEDIA_COMMAND;
@@ -78,9 +92,14 @@ int main(int argc, char** argv) {
         MRMediaRemoteSendCommand((MRMediaRemoteCommand) [cmdTranslate[cmdStr] intValue], nil);
     }
 
+    MRMediaRemoteSetElapsedTimeFunction MRMediaRemoteSetElapsedTime = (MRMediaRemoteSetElapsedTimeFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteSetElapsedTime"));
+    if(command == SEEK) {
+        MRMediaRemoteSetElapsedTime(seekTime);
+    }
+
     MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo = (MRMediaRemoteGetNowPlayingInfoFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
     MRMediaRemoteGetNowPlayingInfo(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(NSDictionary* information) {
-        if(command == MEDIA_COMMAND) {
+        if(command == MEDIA_COMMAND || command == SEEK) {
             [NSApp terminate:nil];
             return;
         }

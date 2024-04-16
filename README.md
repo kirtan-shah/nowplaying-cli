@@ -35,6 +35,7 @@ mv nowplaying-cli ~/.local/bin
 | play | play the currently playing media regardless of current state |
 | pause | pause the currently playing media regardless of current state |
 | togglePlayPause | toggle play/pause based on current state |
+| seek <seconds> | seek to a specific time in the currently playing media |
 | next | skip to next track | 
 | previous | go to previous track |
 
