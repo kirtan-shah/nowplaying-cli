@@ -14,9 +14,11 @@ void printHelp() {
     printf("\tnowplaying-cli get title album artist\n");
     printf("\tnowplaying-cli pause\n");
     printf("\tnowplaying-cli seek 60\n");
+    printf("\tnowplaying-cli skip 10\n");
+    printf("\tnowplaying-cli skip -10\n");
     printf("\n");
     printf("Available commands: \n");
-    printf("\tget, get-raw, play, pause, togglePlayPause, next, previous, seek <secs>\n");
+    printf("\tget, get-raw, play, pause, togglePlayPause, next, previous, seek <secs>, skip <secs>\n");
 }
 
 typedef enum {
@@ -24,6 +26,7 @@ typedef enum {
     GET_RAW,
     MEDIA_COMMAND,
     SEEK,
+    SKIP,
 
 } Command;
 
@@ -45,6 +48,7 @@ int main(int argc, char** argv) {
     Command command = GET;
     NSString *cmdStr = [NSString stringWithUTF8String:argv[1]];
     double seekTime = 0;
+    double skipSeconds = 0;
 
     int numKeys = argc - 2;
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
@@ -68,6 +72,16 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    else if(strcmp(argv[1], "skip") == 0 && argc == 3) {
+        command = SKIP;
+        char *end;
+        skipSeconds = strtod(argv[2], &end);
+        if(*end != '\0') {
+            fprintf(stderr, "Invalid skip time: %s\n", argv[2]);
+            fprintf(stderr, "Usage: nowplaying-cli skip <secs>\n");
+            return 1;
+        }
+    }
     else if(cmdTranslate[cmdStr] != nil) {
         command = MEDIA_COMMAND;
     }
@@ -77,7 +91,7 @@ int main(int argc, char** argv) {
     }
 
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    NSPanel* panel = [[NSPanel alloc] 
+    NSPanel* panel = [[NSPanel alloc]
         initWithContentRect: NSMakeRect(0, 0, 0, 0)
         styleMask: NSWindowStyleMaskTitled
         backing: NSBackingStoreBuffered
@@ -88,18 +102,44 @@ int main(int argc, char** argv) {
     CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
 
     MRMediaRemoteSendCommandFunction MRMediaRemoteSendCommand = (MRMediaRemoteSendCommandFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteSendCommand"));
+    MRMediaRemoteSetElapsedTimeFunction MRMediaRemoteSetElapsedTime = (MRMediaRemoteSetElapsedTimeFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteSetElapsedTime"));
+    MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo = (MRMediaRemoteGetNowPlayingInfoFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
+
     if(command == MEDIA_COMMAND) {
         MRMediaRemoteSendCommand((MRMediaRemoteCommand) [cmdTranslate[cmdStr] intValue], nil);
     }
 
-    MRMediaRemoteSetElapsedTimeFunction MRMediaRemoteSetElapsedTime = (MRMediaRemoteSetElapsedTimeFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteSetElapsedTime"));
+    if(command == SKIP) {
+        MRMediaRemoteGetNowPlayingInfo(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(NSDictionary* information) {
+            double elapsedTime = [[information objectForKey:@"kMRMediaRemoteNowPlayingInfoElapsedTime"] doubleValue];
+            double duration = [[information objectForKey:@"kMRMediaRemoteNowPlayingInfoDuration"] doubleValue];
+            double skipTo = elapsedTime + skipSeconds;
+
+            if(skipTo < 0) {
+                skipTo = elapsedTime - 3;
+            }
+            else if(skipTo >= duration) {
+                skipTo = elapsedTime + 3;
+            }
+
+            if(skipTo < 0) {
+                skipTo = 0;
+            }
+            else if(skipTo > duration) {
+                return;
+            }
+
+            MRMediaRemoteSetElapsedTime(skipTo);
+            [NSApp terminate:nil];
+        });
+    }
+
     if(command == SEEK) {
         MRMediaRemoteSetElapsedTime(seekTime);
     }
 
-    MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo = (MRMediaRemoteGetNowPlayingInfoFunction) CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
     MRMediaRemoteGetNowPlayingInfo(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(NSDictionary* information) {
-        if(command == MEDIA_COMMAND || command == SEEK) {
+        if(command == MEDIA_COMMAND || command == SEEK || command == SKIP) {
             [NSApp terminate:nil];
             return;
         }
