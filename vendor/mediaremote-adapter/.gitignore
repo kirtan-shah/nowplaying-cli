@@ -1,8 +1,0 @@
-build
-.DS_Store
-notes
-CMakePresets.json
-.cache
-todo*.txt
-dist
-perltidy.ERR

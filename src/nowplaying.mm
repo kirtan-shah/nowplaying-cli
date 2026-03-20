@@ -177,38 +177,39 @@ static NSString *GetExecutableDir(void) {
     return [path stringByDeletingLastPathComponent];
 }
 
-static NSDictionary *ReadViaPerlAdapter(void) {
+static NSDictionary *ReadViaHelperBinary(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *exeDir = GetExecutableDir() ?: [[fm currentDirectoryPath] copy];
+    NSString *exeDir = GetExecutableDir() ?: [fm currentDirectoryPath];
     NSString *cwd = [fm currentDirectoryPath];
 
     NSArray<NSString *> *scriptCandidates = @[
-        [exeDir stringByAppendingPathComponent:@"vendor/mediaremote-adapter/bin/mediaremote-adapter.pl"],
-        [cwd stringByAppendingPathComponent:@"vendor/mediaremote-adapter/bin/mediaremote-adapter.pl"],
+        [exeDir stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
+        [cwd stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
     ];
-
-    NSArray<NSString *> *frameworkCandidates = @[
-        [exeDir stringByAppendingPathComponent:@"build/mediaremote-adapter/MediaRemoteAdapter.framework"],
-        [cwd stringByAppendingPathComponent:@"build/mediaremote-adapter/MediaRemoteAdapter.framework"],
+    NSArray<NSString *> *dylibCandidates = @[
+        [exeDir stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
+        [cwd stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
     ];
 
     NSString *scriptPath = nil;
     for (NSString *candidate in scriptCandidates) {
-        if ([fm isExecutableFileAtPath:candidate]) { scriptPath = candidate; break; }
-    }
-    if (!scriptPath) return nil;
-
-    NSString *frameworkPath = nil;
-    BOOL isDir = NO;
-    for (NSString *candidate in frameworkCandidates) {
-        if ([fm fileExistsAtPath:candidate isDirectory:&isDir] && isDir) {
-            frameworkPath = candidate;
+        if ([fm isExecutableFileAtPath:candidate]) {
+            scriptPath = candidate;
             break;
         }
     }
-    if (!frameworkPath) return nil;
+    if (!scriptPath) return nil;
 
-    NSString *command = [NSString stringWithFormat:@"/usr/bin/perl '%@' '%@' get", scriptPath, frameworkPath];
+    NSString *dylibPath = nil;
+    for (NSString *candidate in dylibCandidates) {
+        if ([fm isReadableFileAtPath:candidate]) {
+            dylibPath = candidate;
+            break;
+        }
+    }
+    if (!dylibPath) return nil;
+
+    NSString *command = [NSString stringWithFormat:@"/usr/bin/perl '%@' '%@' adapter_get_env", scriptPath, dylibPath];
     FILE *pipe = popen([command UTF8String], "r");
     if (!pipe) return nil;
 
@@ -218,6 +219,7 @@ static NSDictionary *ReadViaPerlAdapter(void) {
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
         [output appendBytes:buffer length:bytesRead];
     }
+
     int status = pclose(pipe);
     if (status != 0 || [output length] == 0) return nil;
 
@@ -233,7 +235,7 @@ static NSDictionary *ReadViaPerlAdapter(void) {
     return json;
 }
 
-static NSDictionary *LegacyInfoDictFromAdapterJSON(NSDictionary *json) {
+static NSDictionary *LegacyInfoDictFromHelperJSON(NSDictionary *json) {
     if (!json || ![json isKindOfClass:[NSDictionary class]]) return nil;
 
     NSDictionary *map = @{
@@ -371,17 +373,17 @@ int main(int argc, char** argv) {
 
     if (command == GET || command == GET_RAW) {
         @autoreleasepool {
-            NSDictionary *adapterJSON = ReadViaPerlAdapter();
-            if (adapterJSON != nil) {
+            NSDictionary *helperJSON = ReadViaHelperBinary();
+            if (helperJSON != nil) {
                 if (command == GET_RAW) {
-                    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:adapterJSON options:NSJSONWritingPrettyPrinted error:nil];
+                    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:helperJSON options:NSJSONWritingPrettyPrinted error:nil];
                     if (jsonData) {
                         printf("%s\n", [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] UTF8String]);
                     } else {
                         printf("{}\n");
                     }
                 } else {
-                    NSDictionary *legacyInfo = LegacyInfoDictFromAdapterJSON(adapterJSON);
+                    NSDictionary *legacyInfo = LegacyInfoDictFromHelperJSON(helperJSON);
                     printNowPlayingInfo(legacyInfo, command, keys, numKeys);
                 }
                 return 0;
