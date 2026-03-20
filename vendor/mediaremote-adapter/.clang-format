@@ -1,0 +1,49 @@
+---
+BasedOnStyle: LLVM
+IndentWidth: 4
+---
+Language: Cpp
+AccessModifierOffset: -4
+PointerAlignment: Left
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: Never
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: false
+  BeforeCatch: true
+AlignAfterOpenBracket: DontAlign
+Cpp11BracedListStyle: false
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: "<httplib\\.h>"
+    Priority: 3
+  - Regex: "<[^Q][[:alnum:]_.]+>"
+    Priority: 1
+  - Regex: "<Q.+>"
+    Priority: 2
+  - Regex: "<[^Q].+>"
+    Priority: 3
+  - Regex: ".*"
+    Priority: 4
+SeparateDefinitionBlocks: Always
+AllowShortLambdasOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: true
+AlignOperands: DontAlign
+AlignEscapedNewlines: Left
+BinPackParameters: true
+AlignTrailingComments:
+  Kind: Never
+---
+Language: JavaScript
+SpacesInContainerLiterals: false
+JavaScriptQuotes: Single
+JavaScriptWrapImports: true
+---
+# Notes:
+# Designated initializer list formatting: Write a ',' after the last item.

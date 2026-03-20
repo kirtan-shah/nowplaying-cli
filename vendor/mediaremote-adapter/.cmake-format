@@ -1,0 +1,10 @@
+line_width = 80
+tab_size = 4
+separate_ctrl_name_with_space = False
+separate_fn_name_with_space = False
+dangle_parens = False
+fractional_tab_policy = 'use-space'
+max_subgroups_hwrap = 3
+command_case = 'canonical'
+keyword_case = 'upper'
+literal_comment_pattern = '.*'
