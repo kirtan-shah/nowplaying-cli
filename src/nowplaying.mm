@@ -32,11 +32,15 @@ void printHelp() {
     printf("Example Usage: \n");
     printf("\tnowplaying-cli get-raw\n");
     printf("\tnowplaying-cli get title album artist\n");
+    printf("\tnowplaying-cli get --json title album artist\n");
     printf("\tnowplaying-cli pause\n");
     printf("\tnowplaying-cli seek 60\n");
     printf("\n");
     printf("Available commands: \n");
     printf("\tget, get-raw, play, pause, togglePlayPause, next, previous, seek <secs>\n");
+    printf("\n");
+    printf("Options: \n");
+    printf("\t--json\tOutput as JSON (use with 'get')\n");
 }
 
 typedef enum {
@@ -126,34 +130,81 @@ static NSDictionary *buildInfoDictFromResponse(id response) {
 // ---------------------------------------------------------------------------
 // Print now-playing info.
 // ---------------------------------------------------------------------------
+static NSDictionary *sanitizeForJSON(NSDictionary *dict) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionaryWithCapacity:[dict count]];
+    for (NSString *key in dict) {
+        id val = dict[key];
+        if ([val isKindOfClass:[NSData class]]) {
+            result[key] = [(NSData *)val base64EncodedStringWithOptions:0];
+        } else if ([val isKindOfClass:[NSDate class]]) {
+            result[key] = @([(NSDate *)val timeIntervalSince1970]);
+        } else if ([val isKindOfClass:[NSDictionary class]]) {
+            result[key] = sanitizeForJSON(val);
+        } else {
+            result[key] = val;
+        }
+    }
+    return result;
+}
+
+static void printJSON(NSDictionary *dict) {
+    NSDictionary *safe = sanitizeForJSON(dict);
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:safe
+                                                      options:NSJSONWritingPrettyPrinted
+                                                        error:nil];
+    if (jsonData) {
+        printf("%s\n", [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] UTF8String]);
+    } else {
+        printf("{}\n");
+    }
+}
+
+static id getValueForKey(NSDictionary *info, NSString *key) {
+    NSObject *rawValue = [info objectForKey:key];
+    if (!rawValue) return nil;
+
+    if ([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoArtworkData"] ||
+        [key isEqualToString:@"kMRMediaRemoteNowPlayingInfoClientPropertiesData"]) {
+        return [(NSData *)rawValue base64EncodedStringWithOptions:0];
+    } else if ([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoElapsedTime"]) {
+        MRContentItem *contentItem = [[objc_getClass("MRContentItem") alloc]
+                                      initWithNowPlayingInfo:(__bridge NSDictionary *)info];
+        return @(contentItem.metadata.calculatedPlaybackPosition);
+    }
+    return rawValue;
+}
+
 static void printNowPlayingInfo(NSDictionary *information, Command command,
-                                NSArray<NSString *> *keys, int numKeys) {
+                                NSArray<NSString *> *keys, int numKeys,
+                                BOOL jsonOutput) {
     NSDictionary *safeInfo = information ?: @{};
 
     if (command == GET_RAW) {
-        printf("%s\n", [[safeInfo description] UTF8String]);
+        printJSON(safeInfo);
         return;
     }
+
+    NSMutableDictionary *jsonDict = jsonOutput ? [NSMutableDictionary dictionary] : nil;
 
     for (int i = 0; i < numKeys; i++) {
         NSString *propKey = [keys[i] stringByReplacingCharactersInRange:NSMakeRange(0,1)
                              withString:[[keys[i] substringToIndex:1] capitalizedString]];
         NSString *key = [NSString stringWithFormat:@"kMRMediaRemoteNowPlayingInfo%@", propKey];
-        NSObject *rawValue = [safeInfo objectForKey:key];
-        if (rawValue == nil) {
-            printf("null\n");
-        } else if ([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoArtworkData"] ||
-                   [key isEqualToString:@"kMRMediaRemoteNowPlayingInfoClientPropertiesData"]) {
-            NSData *data = (NSData *)rawValue;
-            printf("%s\n", [[data base64EncodedStringWithOptions:0] UTF8String]);
-        } else if ([key isEqualToString:@"kMRMediaRemoteNowPlayingInfoElapsedTime"]) {
-            MRContentItem *contentItem = [[objc_getClass("MRContentItem") alloc]
-                                          initWithNowPlayingInfo:(__bridge NSDictionary *)safeInfo];
-            printf("%s\n", [[NSString stringWithFormat:@"%f",
-                             contentItem.metadata.calculatedPlaybackPosition] UTF8String]);
+        id value = getValueForKey(safeInfo, key);
+
+        if (jsonOutput) {
+            jsonDict[keys[i]] = value ?: [NSNull null];
         } else {
-            printf("%s\n", [[NSString stringWithFormat:@"%@", rawValue] UTF8String]);
+            if (value == nil) {
+                printf("null\n");
+            } else {
+                printf("%s\n", [[NSString stringWithFormat:@"%@", value] UTF8String]);
+            }
         }
+    }
+
+    if (jsonOutput) {
+        printJSON(jsonDict);
     }
 }
 
@@ -339,11 +390,17 @@ int main(int argc, char** argv) {
     Command command = GET;
     NSString *cmdStr = [NSString stringWithUTF8String:argv[1]];
     double seekTime = 0;
+    BOOL jsonOutput = NO;
 
     int numKeys = argc - 2;
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
     if (strcmp(argv[1], "get") == 0) {
         for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--json") == 0) {
+                jsonOutput = YES;
+                numKeys--;
+                continue;
+            }
             [keys addObject:[NSString stringWithUTF8String:argv[i]]];
         }
         command = GET;
@@ -370,17 +427,8 @@ int main(int argc, char** argv) {
     if (command == GET || command == GET_RAW) {
         NSDictionary *helperJSON = ReadViaHelperBinary();
         if (helperJSON != nil) {
-            if (command == GET_RAW) {
-                NSData *jsonData = [NSJSONSerialization dataWithJSONObject:helperJSON options:NSJSONWritingPrettyPrinted error:nil];
-                if (jsonData) {
-                    printf("%s\n", [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] UTF8String]);
-                } else {
-                    printf("{}\n");
-                }
-            } else {
-                NSDictionary *legacyInfo = LegacyInfoDictFromHelperJSON(helperJSON);
-                printNowPlayingInfo(legacyInfo, command, keys, numKeys);
-            }
+            NSDictionary *legacyInfo = LegacyInfoDictFromHelperJSON(helperJSON);
+            printNowPlayingInfo(legacyInfo, command, keys, numKeys, jsonOutput);
             return 0;
         }
     }
@@ -461,7 +509,7 @@ int main(int argc, char** argv) {
                    dispatch_get_main_queue(), ^{
         if (queryDone) return;
         queryDone = YES;
-        printNowPlayingInfo(nil, command, keys, numKeys);
+        printNowPlayingInfo(nil, command, keys, numKeys, jsonOutput);
         [NSApp terminate:nil];
     });
 
@@ -475,7 +523,7 @@ int main(int argc, char** argv) {
             queryViaNewControllerAPI(^(NSDictionary *info) {
                 if (queryDone) return;
                 queryDone = YES;
-                printNowPlayingInfo(info, command, keys, numKeys);
+                printNowPlayingInfo(info, command, keys, numKeys, jsonOutput);
                 [NSApp terminate:nil];
             });
             return;
@@ -488,7 +536,7 @@ int main(int argc, char** argv) {
             if (information != nil && [information count] > 0) {
                 // Old API returned data: use it.
                 queryDone = YES;
-                printNowPlayingInfo(information, command, keys, numKeys);
+                printNowPlayingInfo(information, command, keys, numKeys, jsonOutput);
                 [NSApp terminate:nil];
                 return;
             }
@@ -499,7 +547,7 @@ int main(int argc, char** argv) {
             queryViaNewControllerAPI(^(NSDictionary *info) {
                 if (queryDone) return;
                 queryDone = YES;
-                printNowPlayingInfo(info, command, keys, numKeys);
+                printNowPlayingInfo(info, command, keys, numKeys, jsonOutput);
                 [NSApp terminate:nil];
             });
         });
