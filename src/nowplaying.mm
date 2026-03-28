@@ -212,10 +212,19 @@ static NSDictionary *ReadViaHelperBinary(void) {
     if (![obj isKindOfClass:[NSDictionary class]]) return nil;
 
     NSDictionary *json = (NSDictionary *)obj;
-    id title = json[@"title"];
-    if (!title || title == [NSNull null] || ![title isKindOfClass:[NSString class]] || [title length] == 0) {
-        return nil;
+
+    // Check that at least one meaningful metadata field is present.
+    NSArray *meaningfulKeys = @[@"title", @"artist", @"album", @"duration", @"bundleIdentifier"];
+    BOOL hasData = NO;
+    for (NSString *key in meaningfulKeys) {
+        id val = json[key];
+        if (val && val != [NSNull null]) {
+            if ([val isKindOfClass:[NSString class]] && [(NSString *)val length] == 0) continue;
+            hasData = YES;
+            break;
+        }
     }
+    if (!hasData) return nil;
 
     return json;
 }

@@ -121,9 +121,6 @@ NSDictionary *internal_get(BOOL isTestMode) {
 void adapter_get() {
     NSDictionary *liveData = internal_get(NO);
 
-    NSString *micros_option = getEnvOption(@"micros");
-    const bool convert_micros = micros_option != nil;
-
     NSString *human_readable_option = getEnvOption(@"human-readable");
     const bool human_readable = human_readable_option != nil;
 
