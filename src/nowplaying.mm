@@ -356,27 +356,26 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    @autoreleasepool {
+
     if (command == GET || command == GET_RAW) {
-        @autoreleasepool {
-            NSDictionary *helperJSON = ReadViaHelperBinary();
-            if (helperJSON != nil) {
-                if (command == GET_RAW) {
-                    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:helperJSON options:NSJSONWritingPrettyPrinted error:nil];
-                    if (jsonData) {
-                        printf("%s\n", [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] UTF8String]);
-                    } else {
-                        printf("{}\n");
-                    }
+        NSDictionary *helperJSON = ReadViaHelperBinary();
+        if (helperJSON != nil) {
+            if (command == GET_RAW) {
+                NSData *jsonData = [NSJSONSerialization dataWithJSONObject:helperJSON options:NSJSONWritingPrettyPrinted error:nil];
+                if (jsonData) {
+                    printf("%s\n", [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] UTF8String]);
                 } else {
-                    NSDictionary *legacyInfo = LegacyInfoDictFromHelperJSON(helperJSON);
-                    printNowPlayingInfo(legacyInfo, command, keys, numKeys);
+                    printf("{}\n");
                 }
-                return 0;
+            } else {
+                NSDictionary *legacyInfo = LegacyInfoDictFromHelperJSON(helperJSON);
+                printNowPlayingInfo(legacyInfo, command, keys, numKeys);
             }
+            return 0;
         }
     }
 
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSPanel *panel = [[NSPanel alloc]
         initWithContentRect: NSMakeRect(0, 0, 0, 0)
         styleMask: NSWindowStyleMaskTitled
@@ -386,12 +385,19 @@ int main(int argc, char** argv) {
     // Use dlopen so that ObjC classes inside the MediaRemote framework (which
     // live only in the dyld shared cache on macOS 15.4+) are registered with
     // the ObjC runtime and visible via NSClassFromString().
-    dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote",
-           RTLD_NOW | RTLD_GLOBAL);
+    if (!dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote",
+                RTLD_NOW | RTLD_GLOBAL)) {
+        fprintf(stderr, "Failed to load MediaRemote framework\n");
+        return 1;
+    }
 
     CFURLRef ref = (__bridge CFURLRef)[NSURL fileURLWithPath:
         @"/System/Library/PrivateFrameworks/MediaRemote.framework"];
     CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
+    if (!bundle) {
+        fprintf(stderr, "Failed to create MediaRemote bundle\n");
+        return 1;
+    }
 
     // ---- Media-control commands ----
     MRMediaRemoteSendCommandFunction MRMediaRemoteSendCommand =
@@ -413,9 +419,7 @@ int main(int argc, char** argv) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(500 * NSEC_PER_MSEC)),
                        dispatch_get_main_queue(), ^{ [NSApp terminate:nil]; });
         [NSApp run];
-        [panel release];
-        [pool release];
-        if (bundle) CFRelease(bundle);
+        CFRelease(bundle);
         return 0;
     }
 
@@ -493,8 +497,8 @@ int main(int argc, char** argv) {
     });
 
     [NSApp run];
-    [panel release];
-    [pool release];
-    if (bundle) CFRelease(bundle);
+    CFRelease(bundle);
     return 0;
+
+    } // @autoreleasepool
 }
