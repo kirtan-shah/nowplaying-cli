@@ -11,7 +11,7 @@ dispatch_queue_t g_serialdispatchQueue;
 __attribute__((constructor)) static void initGlobals() {
     g_mediaRemote = [[MediaRemote alloc] init];
     if (!g_mediaRemote) {
-        fail(@"Failed to initialize MediaRemote Framework");
+        printErr(@"Failed to initialize MediaRemote Framework");
         return;
     }
     g_serialdispatchQueue = dispatch_queue_create(

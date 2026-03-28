@@ -179,51 +179,36 @@ static NSString *GetExecutableDir(void) {
 
 static NSDictionary *ReadViaHelperBinary(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *exeDir = GetExecutableDir() ?: [fm currentDirectoryPath];
-    NSString *cwd = [fm currentDirectoryPath];
+    NSString *exeDir = GetExecutableDir();
+    if (!exeDir) return nil;
 
-    NSArray<NSString *> *scriptCandidates = @[
-        [exeDir stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
-        [cwd stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
-    ];
-    NSArray<NSString *> *dylibCandidates = @[
-        [exeDir stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
-        [cwd stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
-    ];
+    NSString *scriptPath = [exeDir stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"];
+    NSString *dylibPath = [exeDir stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"];
 
-    NSString *scriptPath = nil;
-    for (NSString *candidate in scriptCandidates) {
-        if ([fm isExecutableFileAtPath:candidate]) {
-            scriptPath = candidate;
-            break;
-        }
-    }
-    if (!scriptPath) return nil;
+    if (![fm isExecutableFileAtPath:scriptPath]) return nil;
+    if (![fm isReadableFileAtPath:dylibPath]) return nil;
 
-    NSString *dylibPath = nil;
-    for (NSString *candidate in dylibCandidates) {
-        if ([fm isReadableFileAtPath:candidate]) {
-            dylibPath = candidate;
-            break;
-        }
-    }
-    if (!dylibPath) return nil;
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:@"/usr/bin/perl"];
+    [task setArguments:@[scriptPath, dylibPath, @"adapter_get_env"]];
 
-    NSString *command = [NSString stringWithFormat:@"/usr/bin/perl '%@' '%@' adapter_get_env", scriptPath, dylibPath];
-    FILE *pipe = popen([command UTF8String], "r");
-    if (!pipe) return nil;
+    NSPipe *pipe = [NSPipe pipe];
+    [task setStandardOutput:pipe];
+    [task setStandardError:[NSFileHandle fileHandleWithNullDevice]];
 
-    NSMutableData *output = [NSMutableData data];
-    char buffer[4096];
-    size_t bytesRead = 0;
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
-        [output appendBytes:buffer length:bytesRead];
+    @try {
+        [task launch];
+    } @catch (NSException *) {
+        return nil;
     }
 
-    int status = pclose(pipe);
-    if (status != 0 || [output length] == 0) return nil;
+    NSData *output = [[pipe fileHandleForReading] readDataToEndOfFile];
+    [task waitUntilExit];
 
-    id obj = [NSJSONSerialization JSONObjectWithData:output options:0 error:nil];
+    if ([task terminationStatus] != 0 || [output length] == 0) return nil;
+
+    NSError *jsonError = nil;
+    id obj = [NSJSONSerialization JSONObjectWithData:output options:0 error:&jsonError];
     if (![obj isKindOfClass:[NSDictionary class]]) return nil;
 
     NSDictionary *json = (NSDictionary *)obj;

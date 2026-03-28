@@ -14,7 +14,7 @@
 #import <CoreServices/CoreServices.h>
 #endif
 
-#define JSON_NULL @"null";
+#define JSON_NULL @"null"
 
 void printOut(NSString *message) {
     fprintf(stdout, "%s\n", [message UTF8String]);
