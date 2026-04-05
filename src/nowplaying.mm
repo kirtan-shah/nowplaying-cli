@@ -228,16 +228,73 @@ static NSString *GetExecutableDir(void) {
     return [path stringByDeletingLastPathComponent];
 }
 
-static NSDictionary *ReadViaHelperBinary(void) {
+static NSArray<NSString *> *HelperPrefixCandidates(void) {
+    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
     NSFileManager *fm = [NSFileManager defaultManager];
+
     NSString *exeDir = GetExecutableDir();
-    if (!exeDir) return nil;
+    if (exeDir) {
+        [candidates addObject:exeDir];
+        NSString *parent = [exeDir stringByDeletingLastPathComponent];
+        if (parent && ![parent isEqualToString:exeDir]) {
+            [candidates addObject:parent];
+        }
+    }
 
-    NSString *scriptPath = [exeDir stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"];
-    NSString *dylibPath = [exeDir stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"];
+    NSDictionary<NSString *, NSString *> *env = [[NSProcessInfo processInfo] environment];
+    NSString *resourceRoot = env[@"NOWPLAYING_CLI_RESOURCE_ROOT"];
+    if (resourceRoot.length > 0) {
+        [candidates addObject:resourceRoot];
+    }
 
-    if (![fm isExecutableFileAtPath:scriptPath]) return nil;
-    if (![fm isReadableFileAtPath:dylibPath]) return nil;
+    NSString *prefix = env[@"NOWPLAYING_CLI_PREFIX"];
+    if (prefix.length > 0) {
+        [candidates addObject:prefix];
+    }
+
+    for (NSString *defaultPrefix in @[@"/usr/local", @"/opt/homebrew"]) {
+        if ([fm fileExistsAtPath:defaultPrefix]) {
+            [candidates addObject:defaultPrefix];
+        }
+    }
+
+    return candidates;
+}
+
+static BOOL ResolveHelperPaths(NSString **scriptPath, NSString **dylibPath) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    for (NSString *base in HelperPrefixCandidates()) {
+        NSArray<NSArray<NSString *> *> *layouts = @[
+            @[
+                [base stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
+                [base stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
+            ],
+            @[
+                [base stringByAppendingPathComponent:@"share/nowplaying-cli/scripts/mediaremote-mini.pl"],
+                [base stringByAppendingPathComponent:@"lib/nowplaying-cli/MediaRemoteMini.dylib"],
+            ],
+        ];
+
+        for (NSArray<NSString *> *layout in layouts) {
+            NSString *candidateScript = layout[0];
+            NSString *candidateDylib = layout[1];
+            if (![fm isExecutableFileAtPath:candidateScript]) continue;
+            if (![fm isReadableFileAtPath:candidateDylib]) continue;
+
+            if (scriptPath) *scriptPath = candidateScript;
+            if (dylibPath) *dylibPath = candidateDylib;
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+static NSDictionary *ReadViaHelperBinary(void) {
+    NSString *scriptPath = nil;
+    NSString *dylibPath = nil;
+    if (!ResolveHelperPaths(&scriptPath, &dylibPath)) return nil;
 
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:@"/usr/bin/perl"];
