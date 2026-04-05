@@ -8,6 +8,8 @@ Use nowplaying-cli to get song information and play/pause your media through an 
 **Tested and working on:** 
 - Ventura 13.1, 13.2, 13.3, 13.6
 - Sonoma 14.4
+- Sequoia 15.7
+- Tahoe 26.3
 
 ## Installation
 
@@ -68,3 +70,7 @@ sudo make install
 |  kMRMediaRemoteNowPlayingInfoTotalTrackCount | totalTrackCount |
 |  kMRMediaRemoteNowPlayingInfoIsMusicApp | isMusicApp |
 |  kMRMediaRemoteNowPlayingInfoUniqueIdentifier | uniqueIdentifier |
+
+## Acknowledgments
+
+Thank you [@ungive](https://github.com/ungive) for their [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) project, which restores support for macOS 15, 26. The files under `src/mediaremote-mini/` are derived from that project and are licensed under the BSD 3-Clause License.
