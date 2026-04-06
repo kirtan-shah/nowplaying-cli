@@ -228,43 +228,19 @@ static NSString *GetExecutableDir(void) {
     return [path stringByDeletingLastPathComponent];
 }
 
-static NSArray<NSString *> *HelperPrefixCandidates(void) {
-    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
-    NSFileManager *fm = [NSFileManager defaultManager];
-
-    NSString *exeDir = GetExecutableDir();
-    if (exeDir) {
-        [candidates addObject:exeDir];
-        NSString *parent = [exeDir stringByDeletingLastPathComponent];
-        if (parent && ![parent isEqualToString:exeDir]) {
-            [candidates addObject:parent];
-        }
-    }
-
-    NSDictionary<NSString *, NSString *> *env = [[NSProcessInfo processInfo] environment];
-    NSString *resourceRoot = env[@"NOWPLAYING_CLI_RESOURCE_ROOT"];
-    if (resourceRoot.length > 0) {
-        [candidates addObject:resourceRoot];
-    }
-
-    NSString *prefix = env[@"NOWPLAYING_CLI_PREFIX"];
-    if (prefix.length > 0) {
-        [candidates addObject:prefix];
-    }
-
-    for (NSString *defaultPrefix in @[@"/usr/local", @"/opt/homebrew"]) {
-        if ([fm fileExistsAtPath:defaultPrefix]) {
-            [candidates addObject:defaultPrefix];
-        }
-    }
-
-    return candidates;
-}
-
 static BOOL ResolveHelperPaths(NSString **scriptPath, NSString **dylibPath) {
     NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *exeDir = GetExecutableDir();
+    if (!exeDir) return NO;
 
-    for (NSString *base in HelperPrefixCandidates()) {
+    // Search the executable's own directory and its parent.
+    NSMutableArray<NSString *> *bases = [NSMutableArray arrayWithObject:exeDir];
+    NSString *parent = [exeDir stringByDeletingLastPathComponent];
+    if (parent && ![parent isEqualToString:exeDir]) {
+        [bases addObject:parent];
+    }
+
+    for (NSString *base in bases) {
         NSArray<NSArray<NSString *> *> *layouts = @[
             @[
                 [base stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
@@ -279,7 +255,7 @@ static BOOL ResolveHelperPaths(NSString **scriptPath, NSString **dylibPath) {
         for (NSArray<NSString *> *layout in layouts) {
             NSString *candidateScript = layout[0];
             NSString *candidateDylib = layout[1];
-            if (![fm isExecutableFileAtPath:candidateScript]) continue;
+            if (![fm isReadableFileAtPath:candidateScript]) continue;
             if (![fm isReadableFileAtPath:candidateDylib]) continue;
 
             if (scriptPath) *scriptPath = candidateScript;
