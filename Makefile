@@ -3,6 +3,10 @@ OBJC = clang
 CFLAGS = -O3
 FRAMEWORKS = -framework Cocoa
 INCLUDES = -I./include
+PREFIX ?= /usr/local
+BIN_DIR = $(PREFIX)/bin
+LIB_DIR = $(PREFIX)/lib/nowplaying-cli
+SHARE_DIR = $(PREFIX)/share/nowplaying-cli
 
 MINI_DIR = src/mediaremote-mini
 MINI_BUILD_DIR = build/mediaremote-mini
@@ -29,6 +33,18 @@ $(MINI_DYLIB): $(MINI_SRC) $(MINI_HEADERS)
 
 nowplaying-cli: src/nowplaying.mm $(MINI_DYLIB)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) $(INCLUDES) $< -o $@
+
+install: all
+	mkdir -p $(DESTDIR)$(BIN_DIR) $(DESTDIR)$(LIB_DIR) $(DESTDIR)$(SHARE_DIR)/scripts
+	cp nowplaying-cli $(DESTDIR)$(BIN_DIR)/nowplaying-cli
+	cp $(MINI_DYLIB) $(DESTDIR)$(LIB_DIR)/MediaRemoteMini.dylib
+	cp scripts/mediaremote-mini.pl $(DESTDIR)$(SHARE_DIR)/scripts/mediaremote-mini.pl
+	chmod 755 $(DESTDIR)$(BIN_DIR)/nowplaying-cli $(DESTDIR)$(SHARE_DIR)/scripts/mediaremote-mini.pl
+
+uninstall:
+	rm -f $(DESTDIR)$(BIN_DIR)/nowplaying-cli
+	rm -f $(DESTDIR)$(LIB_DIR)/MediaRemoteMini.dylib
+	rm -f $(DESTDIR)$(SHARE_DIR)/scripts/mediaremote-mini.pl
 
 clean:
 	rm -f nowplaying-cli

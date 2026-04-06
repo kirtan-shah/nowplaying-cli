@@ -228,16 +228,49 @@ static NSString *GetExecutableDir(void) {
     return [path stringByDeletingLastPathComponent];
 }
 
-static NSDictionary *ReadViaHelperBinary(void) {
+static BOOL ResolveHelperPaths(NSString **scriptPath, NSString **dylibPath) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *exeDir = GetExecutableDir();
-    if (!exeDir) return nil;
+    if (!exeDir) return NO;
 
-    NSString *scriptPath = [exeDir stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"];
-    NSString *dylibPath = [exeDir stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"];
+    // Search the executable's own directory and its parent.
+    NSMutableArray<NSString *> *bases = [NSMutableArray arrayWithObject:exeDir];
+    NSString *parent = [exeDir stringByDeletingLastPathComponent];
+    if (parent && ![parent isEqualToString:exeDir]) {
+        [bases addObject:parent];
+    }
 
-    if (![fm isExecutableFileAtPath:scriptPath]) return nil;
-    if (![fm isReadableFileAtPath:dylibPath]) return nil;
+    for (NSString *base in bases) {
+        NSArray<NSArray<NSString *> *> *layouts = @[
+            @[
+                [base stringByAppendingPathComponent:@"scripts/mediaremote-mini.pl"],
+                [base stringByAppendingPathComponent:@"build/mediaremote-mini/MediaRemoteMini.dylib"],
+            ],
+            @[
+                [base stringByAppendingPathComponent:@"share/nowplaying-cli/scripts/mediaremote-mini.pl"],
+                [base stringByAppendingPathComponent:@"lib/nowplaying-cli/MediaRemoteMini.dylib"],
+            ],
+        ];
+
+        for (NSArray<NSString *> *layout in layouts) {
+            NSString *candidateScript = layout[0];
+            NSString *candidateDylib = layout[1];
+            if (![fm isReadableFileAtPath:candidateScript]) continue;
+            if (![fm isReadableFileAtPath:candidateDylib]) continue;
+
+            if (scriptPath) *scriptPath = candidateScript;
+            if (dylibPath) *dylibPath = candidateDylib;
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+static NSDictionary *ReadViaHelperBinary(void) {
+    NSString *scriptPath = nil;
+    NSString *dylibPath = nil;
+    if (!ResolveHelperPaths(&scriptPath, &dylibPath)) return nil;
 
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:@"/usr/bin/perl"];

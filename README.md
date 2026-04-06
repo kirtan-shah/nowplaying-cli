@@ -22,10 +22,9 @@ brew install nowplaying-cli
 
 ### Build from source
 
-Clone the repository and run `make` to build the binary. You can then move the binary to your desired location.
+Clone the repository and run `make` to build the binary. If you want to install it system-wide, use `make install` so the helper script and dylib are installed alongside it.
 ```bash
-make
-mv nowplaying-cli ~/.local/bin
+sudo make install
 ```
 
 ## Usage
